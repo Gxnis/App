@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: gxenis-bot
-    env: node
-    buildCommand: "npm install"
-    startCommand: "node index.js"
-    autoDeploy: false
