@@ -1,7 +1,0 @@
-_____/COMMANDS\_____
-pour maj de commande : node deploy-commands.js
-pour lancer l'app: node index.js
-
-
-node deploy-commands.js
-node index.js
