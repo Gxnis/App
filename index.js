@@ -5,9 +5,12 @@ const {
     Partials,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    Events
 } = require("discord.js");
 const fs = require("fs");
+const express = require("express");
+const config = require("./config.json");
 require("dotenv").config();
 
 // =========================
@@ -32,20 +35,22 @@ const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"))
 
 for (const file of commandFiles) {
     const cmd = require(`./commands/${file}`);
-    client.commands.set(cmd.data.name, cmd);
+    if (cmd.data && cmd.execute) {
+        client.commands.set(cmd.data.name, cmd);
+    }
 }
 
 // =========================
-//  BOT PRÊT
+//  BOT PRÊT (nouveau nom d’event)
 // =========================
-client.once("ready", () => {
+client.once(Events.ClientReady, () => {
     console.log(`🚀 Bot connecté : ${client.user.tag}`);
 });
 
 // =========================
 //  GESTION DES COMMANDES
 // =========================
-client.on("interactionCreate", async interaction => {
+client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     const cmd = client.commands.get(interaction.commandName);
@@ -55,21 +60,28 @@ client.on("interactionCreate", async interaction => {
         await cmd.execute(interaction);
     } catch (err) {
         console.error(err);
-        interaction.reply({
-            content: "❌ Une erreur est survenue.",
-            ephemeral: true
-        });
+        // ephemeral deprecated → on utilise flags
+        if (interaction.deferred || interaction.replied) {
+            await interaction.followUp({
+                content: "❌ Une erreur est survenue.",
+                flags: 64
+            });
+        } else {
+            await interaction.reply({
+                content: "❌ Une erreur est survenue.",
+                flags: 64
+            });
+        }
     }
 });
 
 // =========================
 //  GESTION DU BOUTON DE VÉRIFICATION
 // =========================
-client.on("interactionCreate", async interaction => {
+client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isButton()) return;
     if (interaction.customId !== "gxenis_verify") return;
 
-    const config = require("./config.json");
     if (!config.verifEnabled) return;
 
     const member = interaction.member;
@@ -86,7 +98,7 @@ client.on("interactionCreate", async interaction => {
     ) {
         return interaction.reply({
             content: "❌ Tu dois mettre **gxnis** dans ton statut personnalisé (À quoi pensez‑vous en ce moment ?) pour être vérifié.",
-            ephemeral: true
+            flags: 64
         });
     }
 
@@ -97,7 +109,7 @@ client.on("interactionCreate", async interaction => {
     if (!role) {
         return interaction.reply({
             content: "⚠️ Le rôle **Membre** n'existe pas.",
-            ephemeral: true
+            flags: 64
         });
     }
 
@@ -118,8 +130,23 @@ client.on("interactionCreate", async interaction => {
     // =========================
     return interaction.reply({
         content: "🎉 Tu es maintenant vérifié et tu as reçu le rôle **Membre** !",
-        ephemeral: true
+        flags: 64
     });
+});
+
+// =========================
+//  ANTI-CRASH
+// =========================
+process.on("unhandledRejection", err => console.error("Unhandled Rejection:", err));
+process.on("uncaughtException", err => console.error("Uncaught Exception:", err));
+
+// =========================
+//  EXPRESS POUR RENDER
+// =========================
+const app = express();
+app.get("/", (req, res) => res.send("Bot is running"));
+app.listen(process.env.PORT || 3000, () => {
+    console.log("🌐 Serveur Express actif pour Render");
 });
 
 // =========================
